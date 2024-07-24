@@ -157,7 +157,10 @@ if __name__ == '__main__':
                 steps.append(sel_step)
 
             # Form final dataframe from the list
-            final = xr.concat(steps, dim='time_counter')
+            unique_steps = {step.time_counter.values[0]: step for step in steps}
+            final = xr.concat(list(unique_steps.values()), dim='time_counter')
+
+            #final = xr.concat(steps, dim='time_counter')
             print('final dataset')
             print(final)
 
