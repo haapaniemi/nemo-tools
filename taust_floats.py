@@ -121,7 +121,7 @@ if __name__ == '__main__':
                 print(lon, lat)
 
                 distance = np.sqrt((exptim.nav_lon - lon)**2 + (exptim.nav_lat - lat)**2)
-                print('........ distance set shape (only used for findind nearest point):')
+                print('........ distance set shape (only used for finding nearest point):')
                 print(distance.shape)
 
                 flattened_idx = distance.argmin()
