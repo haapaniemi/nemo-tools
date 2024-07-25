@@ -25,22 +25,21 @@ def save_floats(list_float_ids, start_date, end_date):
     return
 
 if __name__ == '__main__':
-
     # Define path to data
     # Select time range (currently used for FLOAT data only)
-
     print('starting...')
     floats = [6903711, 6903710, 6903707, 6903706, 6903703, 6903709, 6903708, 6903704]
     fetch_floats = False
     if fetch_floats:
         save_floats(floats, start_date, end_date)
 
-    path2 = '/scratch/project_2003984/Veera/run_nemo/'
-    #exp0 = xr.open_mfdataset(path2 + 'CTRL_OCT20/CTRL_1d_*_grid_T_*',\
-    #                         engine='netcdf4', chunks='auto')
-    exp0 = xr.open_mfdataset(path2 + 'TAUST_OCT20_Hs/TAUST_OCT20_Hs_1d_*_grid_T_*',\
+    path = '/scratch/project_2003984/Veera/run_nemo/'
+   # exp0 = xr.open_mfdataset(path + 'CTRL_OCT20/CTRL_1d_*_grid_T_*',\
+   #                          engine='netcdf4', chunks='auto')
+   # exp0 = xr.open_mfdataset(path + 'TAUST_OCT20_Hs/TAUST_OCT20_Hs_1d_*_grid_T_*',\
+   #                          engine='netcdf4', chunks='auto')
+    exp0 = xr.open_mfdataset(path + 'TAUST-WA2_fit3_OCT20/TAUST-WA2_OCT20_1d_*_grid_T*',\
                              engine='netcdf4', chunks='auto')
-
     ntims = exp0.time_counter.values
     ntim_min = pd.to_datetime(ntims[0]).strftime('%Y-%m-%d')
     ntim_max = pd.to_datetime(ntims[-1]).strftime('%Y-%m-%d')
@@ -48,17 +47,18 @@ if __name__ == '__main__':
     print(ntim_min)
     print(ntim_max)
 
-   # exp0 = xr.open_mfdataset(path2 + 'TAUST_OCT20_Hs/TAUST_OCT20_Hs_1d_*_grid_T_*',\
-   #                          engine='netcdf4',chunks='auto')
-   #  exp0 = xr.open_dataset(path2 +'CTRL_OCT20/CTRL_1d_20201002_20220101_grid_T_202010-202011.nc',engine='netcdf4')
-    experiments = [['TAUST_OCT20_Hs_retry_2.0', exp0]]
+    experiments = [['TAUST-WA2_fit3', exp0]]
+    #experiments = [['TAUST_Hs',exp0]]
+   # experiments = [['CTRL',exp0]]
     print('reading the exp data ok')
+
+    var = 'sal'
 
     for e in experiments:
         exp_name, exp = e[0], e[1]
         for float_no in floats:
             # If already in a file:
-            fdata = xr.open_dataset(path2 + 'results/taust_floats/float_'+str(float_no)+'.nc')
+            fdata = xr.open_dataset(path + 'results/taust_floats/float_'+str(float_no)+'.nc')
             print('reading float data ok')
 
             # Drop duplicates --> only one time, lon, lat for each FLOAT CYCLE
@@ -70,7 +70,11 @@ if __name__ == '__main__':
             fdata = fdata.drop_duplicates('CYCLE_NUMBER')
             print('float data, dropped duplicates (dim = CYCLE_NUMBER):')
 
-            fdata = fdata[['TIME', 'LONGITUDE', 'LATITUDE', 'TEMP', 'PRES']]
+            if var == 'temp':
+                fdata = fdata[['TIME', 'LONGITUDE', 'LATITUDE', 'TEMP', 'PRES']]
+            elif var == 'sal':
+                fdata = fdata[['TIME', 'LONGITUDE', 'LATITUDE', 'PSAL', 'PRES']]
+
             print('float data reduced:')
             print(fdata)
 
@@ -78,8 +82,6 @@ if __name__ == '__main__':
             print('float timestamps')
             ftim_min = pd.to_datetime(ftims_all[0]).strftime('%Y-%m-%d')
             ftim_max = pd.to_datetime(ftims_all[-1]).strftime('%Y-%m-%d')
-            print(ftim_min)
-            print(ftim_max)
 
             start_times = [ntim_min, ftim_min]
             end_times = [ntim_max, ftim_max]
@@ -87,22 +89,20 @@ if __name__ == '__main__':
             # Define the overlapping timeframe
             start_date = max(start_times)
             end_date = min(end_times)
-            print('selected timerange')
-            print(start_date)
-            print(end_date)
 
             # Select the same daterange from both nemo and float data
             exptim = exp.sel(time_counter=slice(start_date, end_date))
             time_mask = (fdata['TIME'] >= start_date) & (fdata['TIME'] <= end_date)
             fdata = fdata[time_mask]
 
-
             # Store float variables to data arrays for looping
             flats = fdata['LATITUDE'].values
             flons = fdata['LONGITUDE'].values
             ftims = fdata['TIME'].values
-            print('float time stamps:')
-            print(ftims)
+            print('float timestamps:', ftims)
+            print('number of float timestamps', len(ftims))
+            print('number of float lons', len(flons))
+            print('number of float lats', len(flats))
 
             # Create empty lists to store the x and y indices tO
             xidx, yidx = [], []
@@ -112,22 +112,27 @@ if __name__ == '__main__':
             # Find the nearest indices for all of the time steps
             for i in range(len(ftims)):
                 timestamp = ftims[i]
-                print('........ current time stamp:')
-                print(timestamp)
-                # Select float lon & lat
+                print('........ current time stamp: ', timestamp)
+
+                # Select float lon & lat for this timestamp
                 lon = flons[i]
                 lat = flats[i]
-                print('........ float lon, lat:')
-                print(lon, lat)
+                print('........ float lon, lat: ', lon, lat)
 
+                # Calculate the float's distance to nemo grid points
                 distance = np.sqrt((exptim.nav_lon - lon)**2 + (exptim.nav_lat - lat)**2)
-                print('........ distance set shape (only used for finding nearest point):')
+                print('........ distance set shape (only used for findind nearest point):')
                 print(distance.shape)
 
+                # Find the nearest grid point index
                 flattened_idx = distance.argmin()
                 distance.close()
+
                 # NOTE: this has to correspond to NEMO nc file shape (y, x)
-                ylat, xlon = np.unravel_index(flattened_idx, exptim['toce'].shape)[2:]
+                if var == 'temp':
+                    ylat, xlon = np.unravel_index(flattened_idx, exptim['toce'].shape)[2:]
+                elif var == 'sal':
+                    ylat, xlon = np.unravel_index(flattened_idx, exptim['soce'].shape)[2:]
 
                 print('........ NEMO indices found:')
                 print(xlon, ylat)
@@ -137,31 +142,66 @@ if __name__ == '__main__':
                 print('....... checking list lengths:')
                 print(len(xidx), len(yidx))
 
+            print('final index list lengths')
+            print(len(xidx), len(yidx))
+            print('number of float timestamps')
+            print(len(ftims))
+            print(len(np.unique(ftims)))
+            print(ftims)
+
             # Select time_counter values closest to FLOAT timestamps
             # (done already at this point to get rid of everything that isn't necessary)
-            tem = exptim.toce.sel(time_counter = ftims, method='nearest', drop=True)
+            # These will then be assigned the float time stamps to avoid duplicates
+            # (to solve issues with coarser temporal resolution)
+            # --- should be fine up to 1d!
+            if var == 'temp':
+                tem = exptim.toce.sel(time_counter = ftims, method='nearest', drop=True)
+            elif var == 'sal':
+                tem = exptim.soce.sel(time_counter = ftims, method='nearest', drop=True)
+
+            print('exp set after selecting timestamps')
+            print(tem)
             tem = tem.drop_vars('time_centered')
             exptim.close()
-            #exp.close()
 
             # Create empty list to store NEMO vertical profiles to for each timestamp
             steps = []
-            # List all NEMO timestamps
+            print('tem old')
+            print(tem.time_counter)
+            tem = tem.assign_coords({'time_counter':ftims})
+            #tem.time_counter.values = ftims
+            print('tem new')
+            print(tem.time_counter)
             tvals = tem.time_counter
+            print('tem.time_counter values')
+            print(tvals.values)
+            print(tvals.shape)
+            print(len(tvals))
+
             for ti, xi, yi in zip(tvals, xidx, yidx):
-                # Select NEMO timestamp
                 sel_step = tem.where(tem.time_counter==ti, drop=True)
-                # Select corresponding lon and lat based on indices
-                sel_step = sel_step.isel(x=xi, y=yi, drop=False)
-                # Append to list
+                sel_step = sel_step.isel(x=xi, y=yi, drop=True)
+
+                print(sel_step.mean())
+                print(f"Index: {i}, Time: {ti.values}, x: {xi}, y: {yi}")
+                print(sel_step.time_counter.values)
+                print(f"sel_step shape: {sel_step.shape}")
                 steps.append(sel_step)
 
-            # Form final dataframe from the list
-            unique_steps = {step.time_counter.values[0]: step for step in steps}
-            final = xr.concat(list(unique_steps.values()), dim='time_counter')
+            print(f"Number of steps: {len(steps)}", len(steps))
+            print(steps)
 
-            #final = xr.concat(steps, dim='time_counter')
+            # Form final dataframe from the list
+            final = xr.concat(steps, dim='time_counter')
             print('final dataset')
             print(final)
+            print(f"Final shape: {final.shape}")
+            print(f'Number of float times: {len(ftims)}')
 
-            final.to_netcdf('FLOAT_'+str(float_no)+'_'+exp_name +'_TEMP.nc', engine='netcdf4')
+            if var == 'temp':
+                final.to_netcdf(exp_name +'_' + str(float_no) +'_TEMP.nc', engine='netcdf4',\
+                               encoding={'time_counter': {'dtype': 'i4'}})
+            elif var == 'sal':
+                final.to_netcdf(exp_name +'_' + str(float_no) + '_SAL.nc', engine='netcdf4',\
+                               encoding={'time_counter': {'dtype': 'i4'}})
+
