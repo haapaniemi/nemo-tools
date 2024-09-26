@@ -19,30 +19,8 @@ if __name__ == '__main__':
 
 
     # Specifying NEMO grid points to be selected
-    nemo_points = [['Aarhus', 518, 460],\
-                   ['Degerby', 883, 692],\
-                   ['Forsmark', 806, 715],\
-                   ['Frederikshavn', 530, 537],\
-                   ['GoteborgTorshamnen', 574, 552],\
-                   ['Hamina', 1128, 724],\
-                   ['Hanko', 977, 680],\
-                   ['Helsinki', 1048, 699],\
-                   ['Hornbaek', 598, 457],\
-                   ['Kemi', 1032, 1031],\
-                   ['Kobenhavn', 604, 433],\
-                   ['Kronstadt', 1221, 689],\
-                   ['Kungsholmsfort', 710, 457],\
-                   ['Kungsvik', 551, 630],\
-                   ['LandsortNorra', 792, 617],\
-                   ['Parnu', 1031, 593],\
-                   ['Pietarsaari', 966, 913],\
-                   ['Raahe', 1028, 970],\
-                   ['Stockholm', 801, 651],\
-                   ['Tallinn', 1041, 658],\
-                   ['Viken', 602, 459],\
-                   ['Visby', 807, 548],\
-                   ['Warnemuende', 586, 342],\
-                   ['Travemuende',542, 328]]
+    nemo_points = [['Aarhus', xidx1, yidx2]\
+                  ['site2', xidx2, yidx2]]
 
     # Loop through files in list_files
     for i in range(len(list_files)):
